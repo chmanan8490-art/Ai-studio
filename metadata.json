@@ -1,0 +1,6 @@
+{
+  "name": "VisionCode AI Studio",
+  "description": "Transform UI screenshots and wireframes into clean Next.js 14+ Tailwind CSS code and comprehensive UX/CRO Audit Reports powered by Gemini Vision.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
