@@ -255,7 +255,10 @@ Provide actionable recommendations for improving user engagement and conversion 
 
       const responseText = response.text;
       if (!responseText) {
-        throw new Error('Empty response returned from Gemini API');
+        return res.status(500).json({
+          success: false,
+          error: 'Empty response returned from Gemini API',
+        });
       }
 
       // Clean and parse JSON response (handle markdown wrappers)
@@ -265,7 +268,10 @@ Provide actionable recommendations for improving user engagement and conversion 
         parsedData = JSON.parse(cleanedJson);
       } catch (parseErr: any) {
         console.error('Failed to parse Gemini response:', responseText.substring(0, 500));
-        throw new Error(`Invalid JSON response from Gemini: ${parseErr.message}`);
+        return res.status(500).json({
+          success: false,
+          error: `Invalid JSON response from Gemini API: ${parseErr.message}`,
+        });
       }
 
       return res.json({
@@ -279,9 +285,14 @@ Provide actionable recommendations for improving user engagement and conversion 
       });
     } catch (err: any) {
       console.error('Error in /api/analyze:', err);
-      return res.status(500).json({
+      
+      // Return proper error JSON response for all error types
+      const errorMessage = err.message || err.toString() || 'Failed to analyze UI screenshot with Gemini API';
+      const statusCode = err.status || 500;
+      
+      return res.status(statusCode).json({
         success: false,
-        error: err.message || 'Failed to analyze UI screenshot with Gemini API',
+        error: errorMessage,
       });
     }
   });
@@ -334,7 +345,10 @@ Please apply the refinement cleanly while maintaining best practices, responsive
 
       const responseText = response.text;
       if (!responseText) {
-        throw new Error('Empty response received from refinement');
+        return res.status(500).json({
+          success: false,
+          error: 'Empty response received from refinement API',
+        });
       }
 
       // Clean and parse JSON response
@@ -344,14 +358,35 @@ Please apply the refinement cleanly while maintaining best practices, responsive
         parsed = JSON.parse(cleanedJson);
       } catch (parseErr: any) {
         console.error('Failed to parse refinement response:', responseText.substring(0, 500));
-        throw new Error(`Invalid JSON response from refinement: ${parseErr.message}`);
+        return res.status(500).json({
+          success: false,
+          error: `Invalid JSON response from refinement: ${parseErr.message}`,
+        });
       }
       return res.json({ success: true, data: parsed });
     } catch (err: any) {
       console.error('Error in /api/refine:', err);
-      return res.status(500).json({
+      
+      // Return proper error JSON response for all error types
+      const errorMessage = err.message || err.toString() || 'Failed to refine code';
+      const statusCode = err.status || 500;
+      
+      return res.status(statusCode).json({
         success: false,
-        error: err.message || 'Failed to refine code',
+        error: errorMessage,
+      });
+    }
+  });
+
+  // Global error handler middleware - catches unhandled errors and returns JSON
+  app.use((err: any, req: any, res: any, next: any) => {
+    console.error('Unhandled error:', err);
+    
+    // Ensure we always respond with JSON on error
+    if (!res.headersSent) {
+      return res.status(err.status || 500).json({
+        success: false,
+        error: err.message || 'Internal server error',
       });
     }
   });

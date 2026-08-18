@@ -51,6 +51,64 @@ export const Uploader: React.FC<UploaderProps> = ({
     return () => window.removeEventListener('paste', handlePaste);
   }, [isLoading, customPrompt]);
 
+  const compressImage = (dataUrl: string, originalType: string): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let { width, height } = img;
+
+        // Calculate new dimensions to stay under 1MB
+        // Target: ~900KB compressed JPEG
+        let quality = 0.85;
+        let compression = 0.85;
+
+        // Scale down if too large
+        if (width > 1920 || height > 1920) {
+          const maxDim = 1920;
+          if (width > height) {
+            height = (height * maxDim) / width;
+            width = maxDim;
+          } else {
+            width = (width * maxDim) / height;
+            height = maxDim;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          reject(new Error('Failed to get canvas context'));
+          return;
+        }
+
+        ctx.drawImage(img, 0, 0, width, height);
+
+        // Use JPEG for better compression, fallback to PNG
+        const targetType = originalType === 'image/png' || originalType === 'image/webp' ? 'image/jpeg' : originalType;
+        
+        // Iteratively compress until under 1MB
+        let compressedUrl = canvas.toDataURL(targetType, quality);
+        while (compressedUrl.length > 1024 * 1024 && quality > 0.4) {
+          quality -= 0.05;
+          compressedUrl = canvas.toDataURL(targetType, quality);
+        }
+
+        if (compressedUrl.length > 1024 * 1024) {
+          reject(new Error('Could not compress image to under 1MB. Try a smaller or lower resolution image.'));
+        } else {
+          resolve(compressedUrl);
+        }
+      };
+      img.onerror = () => {
+        reject(new Error('Failed to load image for compression'));
+      };
+      img.src = dataUrl;
+    });
+  };
+
   const processFile = (file: File) => {
     setErrorMsg(null);
     if (!file.type.startsWith('image/')) {
@@ -64,9 +122,15 @@ export const Uploader: React.FC<UploaderProps> = ({
     }
 
     const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string;
-      onImageSelected(result, file.type, customPrompt);
+    reader.onload = async () => {
+      try {
+        const result = reader.result as string;
+        // Compress image before sending
+        const compressedBase64 = await compressImage(result, file.type);
+        onImageSelected(compressedBase64, file.type, customPrompt);
+      } catch (err: any) {
+        setErrorMsg(err.message || 'Failed to process image. Please try again.');
+      }
     };
     reader.onerror = () => {
       setErrorMsg('Failed to read image file. Please try again.');

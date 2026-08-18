@@ -65,9 +65,21 @@ export default function App() {
 
       clearInterval(stepInterval);
 
-      const json = await response.json();
+      // Safely read response as text first
+      const responseText = await response.text();
+      
+      if (!response.ok) {
+        throw new Error(responseText || `Server error: ${response.statusText}`);
+      }
 
-      if (!response.ok || !json.success) {
+      let json;
+      try {
+        json = JSON.parse(responseText);
+      } catch (parseErr: any) {
+        throw new Error(`Invalid response format: ${parseErr.message}. Response: ${responseText.substring(0, 100)}`);
+      }
+
+      if (!json.success) {
         throw new Error(json.error || 'Failed to analyze UI screenshot with Gemini Vision.');
       }
 
@@ -112,8 +124,21 @@ export default function App() {
         }),
       });
 
-      const json = await response.json();
-      if (!response.ok || !json.success) {
+      // Safely read response as text first
+      const responseText = await response.text();
+
+      if (!response.ok) {
+        throw new Error(responseText || `Server error: ${response.statusText}`);
+      }
+
+      let json;
+      try {
+        json = JSON.parse(responseText);
+      } catch (parseErr: any) {
+        throw new Error(`Invalid response format: ${parseErr.message}`);
+      }
+
+      if (!json.success) {
         throw new Error(json.error || 'Failed to refine code.');
       }
 
